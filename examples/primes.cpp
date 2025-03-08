@@ -3,15 +3,15 @@
 #include <array>
 
 signed main() {
-    // finding all primes numbers up to 500
-    std::array<bool,501> composite;
-    for (int i = 1; i <= 500; i++) {
+    // finding all primes numbers up to 1000
+    std::array<bool,1001> composite;
+    for (int i = 1; i <= 1000; i++) {
         composite[i] = false;
     }
-    for (int i = 2; i <= 500; i++) {
+    for (int i = 2; i <= 1000; i++) {
         if ((!composite[i])) {
             std::cout << i << std::endl;
-            for (int j = (i * i); j <= 500; j+= i) {
+            for (int j = (i * i); j <= 1000; j+= i) {
                 composite[j] = true;
             }
         }
