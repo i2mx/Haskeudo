@@ -4,7 +4,7 @@ A Cambridge Pseudo Code compiler written in Haskell
 ## Usage
 `hsc <sourcefile>.hsc <outputLocation1>.cpp <outputLocation2>.cpp`
 
-https://github.com/i2mx/Haskeudo/blob/main/assets/example.mp4
+https://github.com/user-attachments/assets/ff532fda-eb0a-4636-b7dd-ccb450fd1834
 
 ## TODOs
 Add support for the following types:
