@@ -62,6 +62,7 @@ data Expr
 data Stmt
   = Declare VarName Type
   | Assign VarName Expr
+  | AssignArray VarName [Expr] Expr
   | Cond Expr [Stmt] [Stmt]
   | While Expr [Stmt]
   | For VarName Expr Expr Expr [Stmt]
@@ -126,7 +127,7 @@ typeToString (Array t [Range 1 end]) =
   "std::array<"
     ++ typeToString t
     ++ ","
-    ++ show end
+    ++ show (end + 1)
     ++ ">"
 typeToString (Array t (Range 1 end : dims)) =
   "std::array<"
@@ -155,7 +156,8 @@ compileExpr (Div e1 e2) = "(" ++ compileExpr e1 ++ " / " ++ compileExpr e2 ++ ")
 compileExpr (IntDiv e1 e2) = "(" ++ compileExpr e1 ++ " / " ++ compileExpr e2 ++ ")"
 compileExpr (Mod e1 e2) = "(" ++ compileExpr e1 ++ " % " ++ compileExpr e2 ++ ")"
 compileExpr (Neg e) = "(-" ++ compileExpr e ++ ")"
-compileExpr (BoolLiteral b) = "(" ++ show b ++ ")"
+compileExpr (BoolLiteral True) = "true"
+compileExpr (BoolLiteral False) = "false"
 compileExpr (And e1 e2) = "(" ++ compileExpr e1 ++ " && " ++ compileExpr e2 ++ ")"
 compileExpr (Or e1 e2) = "(" ++ compileExpr e1 ++ " || " ++ compileExpr e2 ++ ")"
 compileExpr (Not e) = "(!" ++ compileExpr e ++ ")"
@@ -236,6 +238,12 @@ compileStmt (Repeat body cond) =
     ++ compileExpr cond
     ++ ");"
 compileStmt (Comment s) = "// " ++ s
+compileStmt (AssignArray varName indices exp) =
+  varName
+    ++ concatMap (\index -> "[" ++ compileExpr index ++ "]") indices
+    ++ " = "
+    ++ compileExpr exp
+    ++ ";"
 
 isComment :: String -> Bool
 isComment str = "//" `isPrefixOf` dropWhile isSpace str
@@ -275,7 +283,7 @@ parens p = do
   return x
 
 identifier :: Parser String
-identifier = try $ many1 (letter <|> digit)
+identifier = try $ many1 (letter <|> digit <|> char '_')
 
 variable :: Parser Expr
 variable = Variable <$> identifier
@@ -478,6 +486,15 @@ commentStmt = do
   symbol "//"
   Comment <$> many (noneOf "\n")
 
+assignArrayStmt :: Parser Stmt
+assignArrayStmt = do
+  var <- identifier
+  symbol "["
+  indices <- sepBy expr (symbol ",")
+  symbol "]"
+  symbol "<-"
+  AssignArray var indices <$> expr
+
 stmt :: Parser Stmt
 stmt =
   commentStmt
@@ -485,6 +502,7 @@ stmt =
     <|> whileStmt
     <|> repeatStmt
     <|> try assignStmt
+    <|> try assignArrayStmt
     <|> declareStmt
     <|> condStmt
     <|> outputStmt
@@ -495,30 +513,25 @@ program = many (stmt <* spaces)
 
 test parser string = print $ parse parser "" string
 
-createExecutable :: String -> String -> IO ()
-createExecutable src dest = do
-  let sourceLocation = src ++ ".hsc"
-  let destinationLocation = dest ++ ".cpp"
-
-  source <- readFile sourceLocation
+createExecutable :: String -> String -> String -> IO ()
+createExecutable src dest out = do
+  source <- readFile src
   case parse program "" source of
     Left err -> print err
     Right ast -> do
       writeFile
-        destinationLocation
+        dest
         $ unlines
         $ formatCode
         $ lines
         $ compile ast
 
-      callCommand $ "g++ " ++ destinationLocation ++ " -o " ++ dest
-      callCommand $ ".\\" ++ dest
+      callCommand $ "g++ " ++ dest ++ " -o " ++ out
 
 main :: IO ()
 main = do
   args <- getArgs
 
   case args of
-    [src] -> createExecutable src src
-    [src, dest] -> createExecutable src dest
-    _ -> putStrLn "Usage: hsc <source> <optional: destination>"
+    [src, dest, out] -> createExecutable src dest out
+    _ -> putStrLn "Usage: hsc <source> <transpiled destination> <executable destination>"
