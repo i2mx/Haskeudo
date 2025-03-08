@@ -1,6 +1,6 @@
 DECLARE n : INTEGER
 INPUT n
--- With large values of n, we will have integer overflow
+// With large values of n, we will have integer overflow
 
 FOR i = 0 TO n DO
     // calculates the i-th fibonacci number
