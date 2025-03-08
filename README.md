@@ -4,15 +4,15 @@ A Cambridge Pseudo Code compiler written in Haskell
 ## Usage
 `hsc <sourcefile>.hsc <outputLocation1>.cpp <outputLocation2>.cpp`
 
-## TODOs
 
-Currently does not support the following data types
+
+## TODOs
+Add support for the following types:
 - [ ] REALS
 - [ ] DATES
 - [ ] UDTs (User Defined Types)
 
-Currently does not support:
-- FUNCTIONS
-- PROCEDURES
-
-Array Indexing can only start at 1
+Add support for the following:
+- [ ] FUNCTIONS
+- [ ] PROCEDURES
+- [ ] Start ARRAY indexes at any value besides just 1
