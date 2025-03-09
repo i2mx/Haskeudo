@@ -189,7 +189,7 @@ compileStmt (Cond condExpr thenStmt elseStmt) =
     ++ ") {\n"
     ++ unlines (map compileStmt thenStmt)
     ++ "}\n"
-    ++ "else {"
+    ++ "else {\n"
     ++ unlines (map compileStmt elseStmt)
     ++ "}"
 compileStmt (While condExpr body) =
