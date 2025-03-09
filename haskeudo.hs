@@ -59,6 +59,8 @@ data Expr
   | ArrayIndex VarName [Expr]
   deriving (Show)
 
+-- TODO: I should change the assignment to use a l value and r value parser
+
 data Stmt
   = Declare VarName Type
   | Assign VarName Expr
@@ -186,7 +188,8 @@ compileStmt (Cond condExpr thenStmt elseStmt) =
     ++ compileExpr condExpr
     ++ ") {\n"
     ++ unlines (map compileStmt thenStmt)
-    ++ "} else {"
+    ++ "}\n"
+    ++ "else {"
     ++ unlines (map compileStmt elseStmt)
     ++ "}"
 compileStmt (While condExpr body) =
