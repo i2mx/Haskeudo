@@ -74,6 +74,8 @@ data Stmt
   | Input VarName
   | Comment String
   | FunctionDef VarName [(VarName, Type)] Type [Stmt]
+  | ProcedureDef VarName [(VarName, Type)] [Stmt]
+  | Call VarName [Expr]
   | Return Expr
   deriving (Show)
 
@@ -142,10 +144,15 @@ typeToString (Array t (Range 1 end : dims)) =
     ++ ">"
 typeToString (UDT s) = s
 
+combine :: [String] -> String
+combine [] = ""
+combine s = foldr1 (\x y -> x ++ ", " ++ y) s
+
 compile :: AST -> String
 compile ast = includes ++ declares ++ head ++ body ++ end
   where
     isDeclaration (FunctionDef {}) = True
+    isDeclaration (ProcedureDef {}) = True
     isDeclaration _ = False
 
     includes = "#include <iostream>\n#include <string>\n#include <array>\n\n"
@@ -187,8 +194,6 @@ compileExpr (Function functionName args) =
     ++ "("
     ++ combine (fmap compileExpr args)
     ++ ")"
-  where
-    combine = foldr1 (\x y -> x ++ ", " ++ y)
 
 -- WE ASSUME THAT FUNCTION CALLS CAN ONLY BE USED IN EXPRESSIONS
 
@@ -252,10 +257,10 @@ compileStmt (For varName start end step body) =
     ++ "}"
 compileStmt (Output exp) =
   "std::cout << "
-    ++ combine (fmap compileExpr exp)
+    ++ combineOut (fmap compileExpr exp)
     ++ " << std::endl;"
   where
-    combine = foldr1 (\x y -> x ++ " << " ++ y)
+    combineOut = foldr1 (\x y -> x ++ " << " ++ y)
 compileStmt (Input varName) = "std::cin >> " ++ varName ++ ";"
 compileStmt (Repeat body cond) =
   "do {\n"
@@ -279,9 +284,21 @@ compileStmt (FunctionDef functionName args returnType body) =
     ++ ") {\n"
     ++ unlines (map compileStmt body)
     ++ "}"
-  where
-    combine = foldr1 (\x y -> x ++ ", " ++ y)
 compileStmt (Return exp) = "return " ++ compileExpr exp ++ ";"
+compileStmt (ProcedureDef procedureName args body) =
+  "void "
+    ++ procedureName
+    ++ "("
+    ++ combine (fmap (\(varName, varType) -> typeToString varType ++ " " ++ varName) args)
+    ++ ") {\n"
+    ++ unlines (map compileStmt body)
+    ++ "}"
+compileStmt (Call functionName args) =
+  "(void) "
+    ++ functionName
+    ++ "("
+    ++ combine (fmap compileExpr args)
+    ++ ");"
 
 isComment :: String -> Bool
 isComment str = "//" `isPrefixOf` dropWhile isSpace str
@@ -580,9 +597,30 @@ functionStmt = do
   symbol "ENDFUNCTION"
   return $ FunctionDef name args returnType statements
 
+procedureStmt :: Parser Stmt
+procedureStmt = do
+  symbol "PROCEDURE"
+  name <- identifier
+  symbol "("
+  args <- sepBy arg (symbol ",")
+  symbol ")"
+  statements <- many stmt
+  symbol "ENDPROCEDURE"
+  return $ ProcedureDef name args statements
+
+callStmt :: Parser Stmt
+callStmt = do
+  symbol "CALL"
+  name <- identifier
+  symbol "("
+  args <- sepBy expr (symbol ",")
+  symbol ")"
+  return $ Call name args
+
 stmt :: Parser Stmt
 stmt =
   commentStmt
+    <|> callStmt
     <|> returnStmt
     <|> forStmt
     <|> whileStmt
@@ -595,7 +633,7 @@ stmt =
     <|> inputStmt
 
 program :: Parser [Stmt]
-program = many ((functionStmt <|> stmt) <* spaces)
+program = many ((procedureStmt <|> functionStmt <|> stmt) <* spaces)
 
 test parser string = print $ parse parser "" string
 

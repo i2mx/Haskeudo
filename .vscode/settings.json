@@ -4,6 +4,7 @@
     "cout",
     "ENDFUNCTION",
     "endl",
+    "ENDPROCEDURE",
     "ENDWHILE",
     "stdio"
   ],
