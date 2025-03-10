@@ -57,6 +57,7 @@ data Expr
   | Geq Expr Expr
   | StringLiteral String
   | ArrayIndex VarName [Expr]
+  | Function VarName [Expr]
   deriving (Show)
 
 -- TODO: I should change the assignment to use a l value and r value parser
@@ -173,6 +174,15 @@ compileExpr (StringLiteral s) = show s
 compileExpr (ArrayIndex varName indices) =
   varName
     ++ concatMap (\index -> "[" ++ compileExpr index ++ "]") indices
+compileExpr (Function functionName args) =
+  functionName
+    ++ "("
+    ++ combine (fmap compileExpr args)
+    ++ ")"
+  where
+    combine = foldr1 (\x y -> x ++ ", " ++ y)
+
+-- WE ASSUME THAT FUNCTION CALLS CAN ONLY BE USED IN EXPRESSIONS
 
 compileStmt :: Stmt -> String
 compileStmt (Declare varName varType) = typeToString varType ++ " " ++ varName ++ ";"
@@ -234,7 +244,7 @@ compileStmt (For varName start end step body) =
     ++ "}"
 compileStmt (Output exp) =
   "std::cout << "
-    ++ combine ( fmap compileExpr exp )
+    ++ combine (fmap compileExpr exp)
     ++ " << std::endl;"
   where
     combine = foldr1 (\x y -> x ++ " << " ++ y)
@@ -324,8 +334,16 @@ expr = finalExpression
         <|> parens expr
         <|> integer
         <|> boolean
+        <|> try function
         <|> variable
         <|> stringLiteral
+
+    function = do
+      var <- identifier
+      symbol "("
+      args <- sepBy expr (symbol ",")
+      symbol ")"
+      return $ Function var args
 
     arrayIndex = do
       var <- identifier
