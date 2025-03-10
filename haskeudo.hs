@@ -576,13 +576,14 @@ functionStmt = do
   symbol ")"
   symbol "RETURNS"
   returnType <- typeParser
-  statements <- many (returnStmt <|> stmt)
+  statements <- many stmt
   symbol "ENDFUNCTION"
   return $ FunctionDef name args returnType statements
 
 stmt :: Parser Stmt
 stmt =
   commentStmt
+    <|> returnStmt
     <|> forStmt
     <|> whileStmt
     <|> repeatStmt
