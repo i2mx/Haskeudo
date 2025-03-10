@@ -7,7 +7,7 @@ signed main() {
     for (int i = 1; i <= 10; i++) {
         int x;
         std::cin >> arr[i];
-        std::cout << arr[i] << (arr[i] * arr[i]) << std::endl;
+        std::cout << arr[i] << " " << (arr[i] * arr[i]) << std::endl;
     }
     return 0; 
 }
