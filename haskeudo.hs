@@ -69,7 +69,7 @@ data Stmt
   | While Expr [Stmt]
   | For VarName Expr Expr Expr [Stmt]
   | Repeat [Stmt] Expr
-  | Output Expr
+  | Output [Expr]
   | Input VarName
   | Comment String
   deriving (Show)
@@ -105,12 +105,12 @@ ast1 =
     Assign "y" (IntValue 10),
     Cond
       (Lt (Variable "x") (Variable "y"))
-      [Output (Variable "y")]
-      [Output (Variable "x")],
+      [Output [Variable "y"]]
+      [Output [Variable "x"]],
     While
       (Lt (Variable "x") (IntValue 10))
       [ Assign "x" (Add (Variable "x") (IntValue 1)),
-        Output (Variable "x")
+        Output [Variable "x"]
       ]
   ]
 
@@ -232,7 +232,12 @@ compileStmt (For varName start end step body) =
     ++ ") {\n"
     ++ unlines (map compileStmt body)
     ++ "}"
-compileStmt (Output exp) = "std::cout << " ++ compileExpr exp ++ " << std::endl;"
+compileStmt (Output exp) =
+  "std::cout << "
+    ++ combine ( fmap compileExpr exp )
+    ++ " << std::endl;"
+  where
+    combine = foldr1 (\x y -> x ++ " << " ++ y)
 compileStmt (Input varName) = "std::cin >> " ++ varName ++ ";"
 compileStmt (Repeat body cond) =
   "do {\n"
@@ -405,12 +410,25 @@ assignStmt = do
 outputStmt :: Parser Stmt
 outputStmt = do
   symbol "OUTPUT"
-  Output <$> expr
+  Output <$> sepBy expr (symbol ",")
 
+lValueParser :: Parser String
+lValueParser =
+  try $
+    many1
+      ( letter
+          <|> digit
+          <|> char '_'
+          <|> char '.'
+          <|> char '['
+          <|> char ']'
+      )
+
+-- THIS IS SO BAD TODO:
 inputStmt :: Parser Stmt
 inputStmt = do
   symbol "INPUT"
-  Input <$> identifier
+  Input <$> lValueParser
 
 ifElseStmt :: Parser Stmt
 ifElseStmt = do
@@ -491,6 +509,7 @@ commentStmt = do
 
 assignArrayStmt :: Parser Stmt
 assignArrayStmt = do
+  spaces
   var <- identifier
   symbol "["
   indices <- sepBy expr (symbol ",")
