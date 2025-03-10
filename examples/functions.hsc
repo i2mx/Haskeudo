@@ -1,0 +1,5 @@
+FUNCTION square(x : INTEGER) RETURNS INTEGER
+    RETURN x * x
+ENDFUNCTION
+
+OUTPUT square(3) + square(4)

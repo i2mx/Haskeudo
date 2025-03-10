@@ -1,6 +1,6 @@
 import Data.Array (array)
 import Data.Char (isSpace)
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, partition)
 import System.Directory.Internal.Prelude (getArgs)
 import System.Process (callCommand)
 import Text.Parsec
@@ -73,6 +73,8 @@ data Stmt
   | Output [Expr]
   | Input VarName
   | Comment String
+  | FunctionDef VarName [(VarName, Type)] Type [Stmt]
+  | Return Expr
   deriving (Show)
 
 {-
@@ -141,10 +143,16 @@ typeToString (Array t (Range 1 end : dims)) =
 typeToString (UDT s) = s
 
 compile :: AST -> String
-compile ast = head ++ body ++ end
+compile ast = includes ++ declares ++ head ++ body ++ end
   where
-    head = "#include <iostream>\n#include <string>\n#include <array>\n\nsigned main() {\n"
-    body = unlines $ map compileStmt ast
+    isDeclaration (FunctionDef {}) = True
+    isDeclaration _ = False
+
+    includes = "#include <iostream>\n#include <string>\n#include <array>\n\n"
+    head = "signed main() {\n"
+    (declarations, statements) = partition isDeclaration ast
+    declares = unlines $ map compileStmt declarations
+    body = unlines $ map compileStmt statements
     end = "return 0; \n}"
 
 -- TODO: add a thingy in front of all variable names to prevent conflicts with c++
@@ -262,6 +270,18 @@ compileStmt (AssignArray varName indices exp) =
     ++ " = "
     ++ compileExpr exp
     ++ ";"
+compileStmt (FunctionDef functionName args returnType body) =
+  typeToString returnType
+    ++ " "
+    ++ functionName
+    ++ "("
+    ++ combine (fmap (\(varName, varType) -> typeToString varType ++ " " ++ varName) args)
+    ++ ") {\n"
+    ++ unlines (map compileStmt body)
+    ++ "}"
+  where
+    combine = foldr1 (\x y -> x ++ ", " ++ y)
+compileStmt (Return exp) = "return " ++ compileExpr exp ++ ";"
 
 isComment :: String -> Bool
 isComment str = "//" `isPrefixOf` dropWhile isSpace str
@@ -535,6 +555,31 @@ assignArrayStmt = do
   symbol "<-"
   AssignArray var indices <$> expr
 
+arg = do
+  spaces
+  var <- identifier
+  symbol ":"
+  dataType <- typeParser
+  return (var, dataType)
+
+returnStmt :: Parser Stmt
+returnStmt = do
+  symbol "RETURN"
+  Return <$> expr
+
+functionStmt :: Parser Stmt
+functionStmt = do
+  symbol "FUNCTION"
+  name <- identifier
+  symbol "("
+  args <- sepBy arg (symbol ",")
+  symbol ")"
+  symbol "RETURNS"
+  returnType <- typeParser
+  statements <- many (returnStmt <|> stmt)
+  symbol "ENDFUNCTION"
+  return $ FunctionDef name args returnType statements
+
 stmt :: Parser Stmt
 stmt =
   commentStmt
@@ -549,7 +594,7 @@ stmt =
     <|> inputStmt
 
 program :: Parser [Stmt]
-program = many (stmt <* spaces)
+program = many ((functionStmt <|> stmt) <* spaces)
 
 test parser string = print $ parse parser "" string
 
