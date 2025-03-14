@@ -13,6 +13,6 @@ Add support for the following types:
 - [ ] UDTs (User Defined Types)
 
 Add support for the following:
-- [ ] FUNCTIONS
-- [ ] PROCEDURES
+- [x] FUNCTIONS
+- [x] PROCEDURES
 - [ ] Start ARRAY indexes at any value besides just 1

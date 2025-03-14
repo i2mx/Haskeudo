@@ -2,17 +2,19 @@
 #include <string>
 #include <array>
 
-int s() {
-    return 1;
-}
-int a(int x) {
-    return x;
-}
-void greet(std::string name) {
-    std::cout << "Hello " << name << std::endl;
-}
 signed main() {
-    std::cout << s() << std::endl;
-    (void) greet("World");
+    // finding all primes numbers up to 1000
+    std::array<bool,1001> composite;
+    for (int i = 1; i <= 1000; i++) {
+        composite[i] = false;
+    }
+    for (int i = 2; i <= 1000; i++) {
+        if ((!composite[i])) {
+            std::cout << i << std::endl;
+            for (int j = (2 * i); j <= 1000; j+= i) {
+                composite[j] = true;
+            }
+        }
+    }
     return 0; 
 }

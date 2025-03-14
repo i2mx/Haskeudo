@@ -283,7 +283,7 @@ compileStmt (FunctionDef functionName args returnType body) =
     ++ combine (fmap (\(varName, varType) -> typeToString varType ++ " " ++ varName) args)
     ++ ") {\n"
     ++ unlines (map compileStmt body)
-    ++ "}"
+    ++ "}\n"
 compileStmt (Return exp) = "return " ++ compileExpr exp ++ ";"
 compileStmt (ProcedureDef procedureName args body) =
   "void "
@@ -292,7 +292,7 @@ compileStmt (ProcedureDef procedureName args body) =
     ++ combine (fmap (\(varName, varType) -> typeToString varType ++ " " ++ varName) args)
     ++ ") {\n"
     ++ unlines (map compileStmt body)
-    ++ "}"
+    ++ "}\n"
 compileStmt (Call functionName args) =
   "(void) "
     ++ functionName
