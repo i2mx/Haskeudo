@@ -1,4 +1,3 @@
-import Data.Array (array)
 import Data.Char (isSpace)
 import Data.List (isPrefixOf, partition)
 import System.Directory.Internal.Prelude (getArgs)
@@ -16,8 +15,7 @@ import Text.Parsec.String (Parser)
 
 type VarName = String
 
-type Program = [String]
-
+-- type Program = [String]
 type AST = [Stmt]
 
 -- Special things we need for the array type
@@ -85,39 +83,39 @@ data Stmt
   └─────────────────────────────────────────────────────────────────────────┘
 -}
 
-program1 :: [String]
-program1 =
-  [ "DECLARE x : INTEGER",
-    "DECLARE y : INTEGER",
-    "x <- 5",
-    "y <- 10",
-    "IF x < y THEN",
-    "  OUTPUT y",
-    "ELSE",
-    "  OUTPUT x",
-    "ENDIF",
-    "WHILE x < 10 DO",
-    "  x <- x + 1",
-    "  OUTPUT x",
-    "ENDWHILE"
-  ]
+-- program1 :: Program
+-- program1 =
+--   [ "DECLARE x : INTEGER",
+--     "DECLARE y : INTEGER",
+--     "x <- 5",
+--     "y <- 10",
+--     "IF x < y THEN",
+--     "  OUTPUT y",
+--     "ELSE",
+--     "  OUTPUT x",
+--     "ENDIF",
+--     "WHILE x < 10 DO",
+--     "  x <- x + 1",
+--     "  OUTPUT x",
+--     "ENDWHILE"
+--   ]
 
-ast1 :: [Stmt]
-ast1 =
-  [ Declare "x" IntType,
-    Declare "y" IntType,
-    Assign "x" (IntValue 5),
-    Assign "y" (IntValue 10),
-    Cond
-      (Lt (Variable "x") (Variable "y"))
-      [Output [Variable "y"]]
-      [Output [Variable "x"]],
-    While
-      (Lt (Variable "x") (IntValue 10))
-      [ Assign "x" (Add (Variable "x") (IntValue 1)),
-        Output [Variable "x"]
-      ]
-  ]
+-- ast1 :: [Stmt]
+-- ast1 =
+--   [ Declare "x" IntType,
+--     Declare "y" IntType,
+--     Assign "x" (IntValue 5),
+--     Assign "y" (IntValue 10),
+--     Cond
+--       (Lt (Variable "x") (Variable "y"))
+--       [Output [Variable "y"]]
+--       [Output [Variable "x"]],
+--     While
+--       (Lt (Variable "x") (IntValue 10))
+--       [ Assign "x" (Add (Variable "x") (IntValue 1)),
+--         Output [Variable "x"]
+--       ]
+--   ]
 
 {-
   ┌────────────────────────────────────────────────────────────────────────────┐
@@ -142,6 +140,7 @@ typeToString (Array t (Range 1 end : dims)) =
     ++ ","
     ++ show end
     ++ ">"
+typeToString (Array _ _) = error "Invalid array dimensions"
 typeToString (UDT s) = s
 
 combine :: [String] -> String
@@ -149,14 +148,14 @@ combine [] = ""
 combine s = foldr1 (\x y -> x ++ ", " ++ y) s
 
 compile :: AST -> String
-compile ast = includes ++ declares ++ head ++ body ++ end
+compile ast = includes ++ declares ++ header ++ body ++ end
   where
     isDeclaration (FunctionDef {}) = True
     isDeclaration (ProcedureDef {}) = True
     isDeclaration _ = False
 
     includes = "#include <iostream>\n#include <string>\n#include <array>\n\n"
-    head = "signed main() {\n"
+    header = "signed main() {\n"
     (declarations, statements) = partition isDeclaration ast
     declares = unlines $ map compileStmt declarations
     body = unlines $ map compileStmt statements
@@ -199,7 +198,7 @@ compileExpr (Function functionName args) =
 
 compileStmt :: Stmt -> String
 compileStmt (Declare varName varType) = typeToString varType ++ " " ++ varName ++ ";"
-compileStmt (Assign varName exp) = varName ++ " = " ++ compileExpr exp ++ ";"
+compileStmt (Assign varName expression) = varName ++ " = " ++ compileExpr expression ++ ";"
 compileStmt (Cond condExpr thenStmt []) =
   "if ("
     ++ compileExpr condExpr
@@ -255,9 +254,9 @@ compileStmt (For varName start end step body) =
     ++ ") {\n"
     ++ unlines (map compileStmt body)
     ++ "}"
-compileStmt (Output exp) =
+compileStmt (Output expression) =
   "std::cout << "
-    ++ combineOut (fmap compileExpr exp)
+    ++ combineOut (fmap compileExpr expression)
     ++ " << std::endl;"
   where
     combineOut = foldr1 (\x y -> x ++ " << " ++ y)
@@ -270,11 +269,11 @@ compileStmt (Repeat body cond) =
     ++ compileExpr cond
     ++ ");"
 compileStmt (Comment s) = "// " ++ s
-compileStmt (AssignArray varName indices exp) =
+compileStmt (AssignArray varName indices expression) =
   varName
     ++ concatMap (\index -> "[" ++ compileExpr index ++ "]") indices
     ++ " = "
-    ++ compileExpr exp
+    ++ compileExpr expression
     ++ ";"
 compileStmt (FunctionDef functionName args returnType body) =
   typeToString returnType
@@ -285,7 +284,7 @@ compileStmt (FunctionDef functionName args returnType body) =
     ++ ") {\n"
     ++ unlines (map compileStmt body)
     ++ "}\n"
-compileStmt (Return exp) = "return " ++ compileExpr exp ++ ";"
+compileStmt (Return expression) = "return " ++ compileExpr expression ++ ";"
 compileStmt (ProcedureDef procedureName args body) =
   "void "
     ++ procedureName
@@ -324,10 +323,11 @@ formatCode = indent 0
 padding :: Parser ()
 padding = skipMany $ oneOf " \t"
 
+nextLine :: Parser ()
 nextLine =
   do
     padding
-    many1 newline
+    _ <- many1 newline
     spaces
     <?> "statement on next line"
 
@@ -361,9 +361,9 @@ integer = IntValue . read <$> many1 digit
 
 stringLiteral :: Parser Expr
 stringLiteral = do
-  char '\"' <?> "\""
+  _ <- char '\"' <?> "\""
   str <- many (noneOf "\"")
-  char '\"' <?> "\""
+  _ <- char '\"' <?> "\""
   return (StringLiteral str)
 
 boolean :: Parser Expr
@@ -390,16 +390,16 @@ expr = finalExpression <?> "valid expression"
 
     function = do
       var <- identifier
-      symbol "("
+      _ <- symbol "("
       args <- sepBy expr (symbol ",")
-      symbol ")"
+      _ <- symbol ")"
       return $ Function var args
 
     arrayIndex = do
       var <- identifier
-      symbol "["
+      _ <- symbol "["
       i <- index
-      symbol "]"
+      _ <- symbol "]"
       return $ ArrayIndex var i
 
     index = sepBy expr (symbol ",")
@@ -436,7 +436,7 @@ integerLiteral = read <$> many1 digit
 rangeParser :: Parser Range
 rangeParser = do
   start <- integerLiteral
-  symbol ":"
+  _ <- symbol ":"
   Range start <$> integerLiteral
 
 dimensionsParser :: Parser Dimension
@@ -444,11 +444,11 @@ dimensionsParser = rangeParser `sepBy` symbol ","
 
 arrayParser :: Parser Type
 arrayParser = do
-  symbol "ARRAY"
-  symbol "["
+  _ <- symbol "ARRAY"
+  _ <- symbol "["
   dimensions <- dimensionsParser
-  symbol "]"
-  symbol "OF"
+  _ <- symbol "]"
+  _ <- symbol "OF"
   Array <$> typeParser <*> pure dimensions
 
 typeParser :: Parser Type
@@ -463,21 +463,21 @@ typeParser =
 -- TODO: Multiple statements in one line
 declareStmt :: Parser Stmt
 declareStmt = do
-  symbol "DECLARE"
+  _ <- symbol "DECLARE"
   var <- identifier
-  symbol ":"
+  _ <- symbol ":"
   Declare var <$> typeParser
 
 assignStmt :: Parser Stmt
 assignStmt = do
   spaces
   var <- identifier
-  symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ " <- ...")
+  _ <- symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ " <- ...")
   Assign var <$> expr
 
 outputStmt :: Parser Stmt
 outputStmt = do
-  symbol "OUTPUT"
+  _ <- symbol "OUTPUT"
   Output <$> sepBy expr (symbol ",")
 
 lValueParser :: Parser String
@@ -495,31 +495,31 @@ lValueParser =
 -- THIS IS SO BAD TODO:
 inputStmt :: Parser Stmt
 inputStmt = do
-  symbol "INPUT"
+  _ <- symbol "INPUT"
   Input <$> lValueParser
 
 ifElseStmt :: Parser Stmt
 ifElseStmt = do
-  symbol "IF"
+  _ <- symbol "IF"
   cond <- expr
-  symbol "THEN" <|> fail "missing THEN in IF-ELSE statement"
+  _ <- symbol "THEN" <|> fail "missing THEN in IF-ELSE statement"
   nextLine
   thenStmt <- many stmt
-  symbol "ELSE" <|> fail "missing ELSE in IF-ELSE statement"
+  _ <- symbol "ELSE" <|> fail "missing ELSE in IF-ELSE statement"
   nextLine
   elseStmt <- many stmt
-  symbol "ENDIF" <|> fail "missing ENDIF in IF-ELSE statement"
+  _ <- symbol "ENDIF" <|> fail "missing ENDIF in IF-ELSE statement"
   return $ Cond cond thenStmt elseStmt
 
 ifStmt :: Parser Stmt
 ifStmt = do
-  symbol "IF"
+  _ <- symbol "IF"
   cond <- expr
-  symbol "THEN" <|> fail "missing THEN in IF statement"
+  _ <- symbol "THEN" <|> fail "missing THEN in IF statement"
   nextLine
   spaces
   thenStmt <- many stmt
-  symbol "ENDIF" <|> fail "missing ENDIF in IF statement"
+  _ <- symbol "ENDIF" <|> fail "missing ENDIF in IF statement"
   return $ Cond cond thenStmt []
 
 condStmt :: Parser Stmt
@@ -527,44 +527,44 @@ condStmt = try ifElseStmt <|> ifStmt
 
 whileStmt :: Parser Stmt
 whileStmt = do
-  symbol "WHILE"
+  _ <- symbol "WHILE"
   cond <- expr
-  symbol "DO" <|> fail "missing DO in WHILE statement"
+  _ <- symbol "DO" <|> fail "missing DO in WHILE statement"
   nextLine
   body <- many stmt
-  symbol "ENDWHILE" <|> fail "missing ENDWHILE in WHILE statement"
+  _ <- symbol "ENDWHILE" <|> fail "missing ENDWHILE in WHILE statement"
   return $ While cond body
 
 forOneStmt :: Parser Stmt
 forOneStmt = do
-  symbol "FOR"
+  _ <- symbol "FOR"
   var <- identifier
-  symbol "="
+  _ <- symbol "="
   start <- expr
-  symbol "TO"
+  _ <- symbol "TO"
   end <- expr
-  symbol "DO" <|> fail "missing DO in FOR statement"
+  _ <- symbol "DO" <|> fail "missing DO in FOR statement"
   nextLine
   body <- many stmt
-  symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
-  symbol var
+  _ <- symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
+  _ <- symbol var
   return $ For var start end (IntValue 1) body
 
 forStepStmt :: Parser Stmt
 forStepStmt = do
-  symbol "FOR"
+  _ <- symbol "FOR"
   var <- identifier
-  symbol "="
+  _ <- symbol "="
   start <- expr
-  symbol "TO"
+  _ <- symbol "TO"
   end <- expr
-  symbol "STEP"
+  _ <- symbol "STEP"
   step <- expr
-  symbol "DO" <|> fail "missing DO in FOR statement"
+  _ <- symbol "DO" <|> fail "missing DO in FOR statement"
   nextLine
   body <- many stmt
-  symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
-  symbol var
+  _ <- symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
+  _ <- symbol var
   return $ For var start end step body
 
 forStmt :: Parser Stmt
@@ -572,72 +572,73 @@ forStmt = try forStepStmt <|> forOneStmt
 
 repeatStmt :: Parser Stmt
 repeatStmt = do
-  symbol "REPEAT"
+  _ <- symbol "REPEAT"
   nextLine
   body <- many stmt
-  symbol "UNTIL" <|> fail "missing UNTIL in REPEAT statement"
+  _ <- symbol "UNTIL" <|> fail "missing UNTIL in REPEAT statement"
   Repeat body <$> expr
 
 commentStmt :: Parser Stmt
 commentStmt = do
-  symbol "//"
+  _ <- symbol "//"
   Comment <$> many (noneOf "\n")
 
 assignArrayStmt :: Parser Stmt
 assignArrayStmt = do
   spaces
   var <- identifier
-  symbol "["
+  _ <- symbol "["
   indices <- sepBy expr (symbol ",")
-  symbol "]" <|> fail "missing closing ]"
-  symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ "[...] <- ...")
+  _ <- symbol "]" <|> fail "missing closing ]"
+  _ <- symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ "[...] <- ...")
   AssignArray var indices <$> expr
 
+arg :: Parser (VarName, Type)
 arg = do
   spaces
   var <- identifier
-  symbol ":"
+  _ <- symbol ":"
   dataType <- typeParser
   return (var, dataType)
 
 returnStmt :: Parser Stmt
 returnStmt = do
-  symbol "RETURN"
+  _ <- symbol "RETURN"
   Return <$> expr
 
 functionStmt :: Parser Stmt
 functionStmt = do
-  symbol "FUNCTION"
+  _ <- symbol "FUNCTION"
   name <- identifier <|> fail "missing identifier in FUNCTION definition"
-  symbol "(" <|> fail "missing opening paren in FUNCTION definition"
+  _ <- symbol "(" <|> fail "missing opening paren in FUNCTION definition"
   args <- sepBy arg (symbol ",")
-  symbol ")" <|> fail "missing closing paren"
-  symbol "RETURNS" <|> fail "missing RETURNS in FUNCTION definition"
+  _ <- symbol ")" <|> fail "missing closing paren"
+  _ <- symbol "RETURNS" <|> fail "missing RETURNS in FUNCTION definition"
   returnType <- typeParser <|> fail "missing return type"
   nextLine
   statements <- many stmt
-  symbol "ENDFUNCTION" <|> fail "missing ENDFUNCTION in FUNCTION definition"
+  _ <- symbol "ENDFUNCTION" <|> fail "missing ENDFUNCTION in FUNCTION definition"
   return $ FunctionDef name args returnType statements
 
 procedureStmt :: Parser Stmt
 procedureStmt = do
-  symbol "PROCEDURE"
+  _ <- symbol "PROCEDURE"
   name <- identifier <|> fail "missing identifier in PROCEDURE definition"
-  symbol "(" <|> fail "missing opening paren in PROCEDURE definition"
+  _ <- symbol "(" <|> fail "missing opening paren in PROCEDURE definition"
   args <- sepBy arg (symbol ",")
-  symbol ")" <|> fail "missing closing paren"
+  _ <- symbol ")" <|> fail "missing closing paren"
   nextLine
   statements <- many stmt
-  symbol "ENDPROCEDURE"
+  _ <- symbol "ENDPROCEDURE"
   return $ ProcedureDef name args statements
 
 callStmt :: Parser Stmt
 callStmt = do
-  symbol "CALL"
+  _ <- symbol "CALL"
   name <- identifier
-  symbol "("
+  _ <- symbol "("
   args <- sepBy expr (symbol ",")
-  symbol ")" <|> fail "missing closing paren"
+  _ <- symbol ")" <|> fail "missing closing paren"
   return $ Call name args
 
 stmt :: Parser Stmt
@@ -661,8 +662,6 @@ program :: Parser [Stmt]
 program = spaces *> many line <* eof
   where
     line = (procedureStmt <* nextLine) <|> (functionStmt <* nextLine) <|> stmt
-
-test parser string = print $ parse parser "" string
 
 createExecutable :: String -> String -> String -> IO ()
 createExecutable src dest out = do
