@@ -265,7 +265,8 @@ compileStmt (Input varName) = "std::cin >> " ++ varName ++ ";"
 compileStmt (Repeat body cond) =
   "do {\n"
     ++ unlines (map compileStmt body)
-    ++ "} while (!"
+    ++ "}\n"
+    ++ "while (!"
     ++ compileExpr cond
     ++ ");"
 compileStmt (Comment s) = "// " ++ s
@@ -320,15 +321,27 @@ formatCode = indent 0
   └─────────────────────────────────────────────────────────────────────────┘
 -}
 
+padding :: Parser ()
+padding = skipMany $ oneOf " \t"
+
+nextLine =
+  do
+    padding
+    many1 newline
+    spaces
+    <?> "statement on next line"
+
+-- manyLines line = sepBy (line <* padding) nextLine
+
 lexeme :: Parser a -> Parser a
 lexeme p = do
-  spaces
+  padding
   x <- p
-  spaces
+  padding
   return x
 
 symbol :: String -> Parser String
-symbol s = try $ lexeme (string s)
+symbol s = try (lexeme (string s))
 
 parens :: Parser a -> Parser a
 parens p = do
@@ -338,7 +351,7 @@ parens p = do
   return x
 
 identifier :: Parser String
-identifier = try $ many1 (letter <|> digit <|> char '_')
+identifier = try (many1 (letter <|> digit <|> char '_')) <?> "identifier"
 
 variable :: Parser Expr
 variable = Variable <$> identifier
@@ -348,10 +361,10 @@ integer = IntValue . read <$> many1 digit
 
 stringLiteral :: Parser Expr
 stringLiteral = do
-  char '\"'
+  char '\"' <?> "\""
   str <- many (noneOf "\"")
-  char '\"'
-  return $ StringLiteral str
+  char '\"' <?> "\""
+  return (StringLiteral str)
 
 boolean :: Parser Expr
 boolean = BoolLiteral <$> boolParser
@@ -359,7 +372,7 @@ boolean = BoolLiteral <$> boolParser
     boolParser = (symbol "TRUE" >> return True) <|> (symbol "FALSE" >> return False)
 
 expr :: Parser Expr
-expr = finalExpression
+expr = finalExpression <?> "valid expression"
   where
     finalExpression = notExpression `chainl1` andOp `chainl1` orOp
     notExpression = (notOp <*> notExpression) <|> logicalExpression
@@ -459,7 +472,7 @@ assignStmt :: Parser Stmt
 assignStmt = do
   spaces
   var <- identifier
-  symbol "<-"
+  symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ " <- ...")
   Assign var <$> expr
 
 outputStmt :: Parser Stmt
@@ -489,20 +502,24 @@ ifElseStmt :: Parser Stmt
 ifElseStmt = do
   symbol "IF"
   cond <- expr
-  symbol "THEN"
+  symbol "THEN" <|> fail "missing THEN in IF-ELSE statement"
+  nextLine
   thenStmt <- many stmt
-  symbol "ELSE"
+  symbol "ELSE" <|> fail "missing ELSE in IF-ELSE statement"
+  nextLine
   elseStmt <- many stmt
-  symbol "ENDIF"
+  symbol "ENDIF" <|> fail "missing ENDIF in IF-ELSE statement"
   return $ Cond cond thenStmt elseStmt
 
 ifStmt :: Parser Stmt
 ifStmt = do
   symbol "IF"
   cond <- expr
-  symbol "THEN"
+  symbol "THEN" <|> fail "missing THEN in IF statement"
+  nextLine
+  spaces
   thenStmt <- many stmt
-  symbol "ENDIF"
+  symbol "ENDIF" <|> fail "missing ENDIF in IF statement"
   return $ Cond cond thenStmt []
 
 condStmt :: Parser Stmt
@@ -512,9 +529,10 @@ whileStmt :: Parser Stmt
 whileStmt = do
   symbol "WHILE"
   cond <- expr
-  symbol "DO"
+  symbol "DO" <|> fail "missing DO in WHILE statement"
+  nextLine
   body <- many stmt
-  symbol "ENDWHILE"
+  symbol "ENDWHILE" <|> fail "missing ENDWHILE in WHILE statement"
   return $ While cond body
 
 forOneStmt :: Parser Stmt
@@ -525,9 +543,10 @@ forOneStmt = do
   start <- expr
   symbol "TO"
   end <- expr
-  symbol "DO"
+  symbol "DO" <|> fail "missing DO in FOR statement"
+  nextLine
   body <- many stmt
-  symbol "NEXT"
+  symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
   symbol var
   return $ For var start end (IntValue 1) body
 
@@ -541,9 +560,10 @@ forStepStmt = do
   end <- expr
   symbol "STEP"
   step <- expr
-  symbol "DO"
+  symbol "DO" <|> fail "missing DO in FOR statement"
+  nextLine
   body <- many stmt
-  symbol "NEXT"
+  symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
   symbol var
   return $ For var start end step body
 
@@ -553,8 +573,9 @@ forStmt = try forStepStmt <|> forOneStmt
 repeatStmt :: Parser Stmt
 repeatStmt = do
   symbol "REPEAT"
+  nextLine
   body <- many stmt
-  symbol "UNTIL"
+  symbol "UNTIL" <|> fail "missing UNTIL in REPEAT statement"
   Repeat body <$> expr
 
 commentStmt :: Parser Stmt
@@ -568,8 +589,8 @@ assignArrayStmt = do
   var <- identifier
   symbol "["
   indices <- sepBy expr (symbol ",")
-  symbol "]"
-  symbol "<-"
+  symbol "]" <|> fail "missing closing ]"
+  symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ "[...] <- ...")
   AssignArray var indices <$> expr
 
 arg = do
@@ -587,23 +608,25 @@ returnStmt = do
 functionStmt :: Parser Stmt
 functionStmt = do
   symbol "FUNCTION"
-  name <- identifier
-  symbol "("
+  name <- identifier <|> fail "missing identifier in FUNCTION definition"
+  symbol "(" <|> fail "missing opening paren in FUNCTION definition"
   args <- sepBy arg (symbol ",")
-  symbol ")"
-  symbol "RETURNS"
-  returnType <- typeParser
+  symbol ")" <|> fail "missing closing paren"
+  symbol "RETURNS" <|> fail "missing RETURNS in FUNCTION definition"
+  returnType <- typeParser <|> fail "missing return type"
+  nextLine
   statements <- many stmt
-  symbol "ENDFUNCTION"
+  symbol "ENDFUNCTION" <|> fail "missing ENDFUNCTION in FUNCTION definition"
   return $ FunctionDef name args returnType statements
 
 procedureStmt :: Parser Stmt
 procedureStmt = do
   symbol "PROCEDURE"
-  name <- identifier
-  symbol "("
+  name <- identifier <|> fail "missing identifier in PROCEDURE definition"
+  symbol "(" <|> fail "missing opening paren in PROCEDURE definition"
   args <- sepBy arg (symbol ",")
-  symbol ")"
+  symbol ")" <|> fail "missing closing paren"
+  nextLine
   statements <- many stmt
   symbol "ENDPROCEDURE"
   return $ ProcedureDef name args statements
@@ -614,33 +637,37 @@ callStmt = do
   name <- identifier
   symbol "("
   args <- sepBy expr (symbol ",")
-  symbol ")"
+  symbol ")" <|> fail "missing closing paren"
   return $ Call name args
 
 stmt :: Parser Stmt
 stmt =
-  commentStmt
-    <|> callStmt
-    <|> returnStmt
-    <|> forStmt
-    <|> whileStmt
-    <|> repeatStmt
-    <|> try assignStmt
-    <|> try assignArrayStmt
-    <|> declareStmt
-    <|> condStmt
-    <|> outputStmt
-    <|> inputStmt
+  ( commentStmt
+      <|> callStmt
+      <|> returnStmt
+      <|> forStmt
+      <|> whileStmt
+      <|> repeatStmt
+      <|> declareStmt
+      <|> condStmt
+      <|> outputStmt
+      <|> inputStmt
+      <|> try assignStmt
+      <|> try assignArrayStmt
+  )
+    <* nextLine
 
 program :: Parser [Stmt]
-program = many ((procedureStmt <|> functionStmt <|> stmt) <* spaces)
+program = spaces *> many line <* eof
+  where
+    line = (procedureStmt <* nextLine) <|> (functionStmt <* nextLine) <|> stmt
 
 test parser string = print $ parse parser "" string
 
 createExecutable :: String -> String -> String -> IO ()
 createExecutable src dest out = do
   source <- readFile src
-  case parse program "" source of
+  case parse program "" (source ++ "\n") of
     Left err -> print err
     Right ast -> do
       writeFile
