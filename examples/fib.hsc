@@ -2,7 +2,7 @@ DECLARE n : INTEGER
 INPUT n
 // With large values of n, we will have integer overflow
 
-FOR i = 0 TO n DO
+FOR i <- 0 TO n DO
     // calculates the i-th fibonacci number
     DECLARE f0 : INTEGER
     DECLARE f1 : INTEGER
@@ -10,7 +10,7 @@ FOR i = 0 TO n DO
     f0 <- 0
     f1 <- 1
 
-    FOR j = 1 TO i DO
+    FOR j <- 1 TO i DO
         f2 <- f0
         f0 <- f1
         f1 <- f0 + f2          

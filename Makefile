@@ -1,4 +1,4 @@
-name = hello
+name = primes
 
 default: 
 	cabal build

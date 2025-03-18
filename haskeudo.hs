@@ -539,7 +539,7 @@ forOneStmt :: Parser Stmt
 forOneStmt = do
   _ <- symbol "FOR"
   var <- identifier
-  _ <- symbol "="
+  _ <- symbol "<-"
   start <- expr
   _ <- symbol "TO"
   end <- expr
@@ -554,7 +554,7 @@ forStepStmt :: Parser Stmt
 forStepStmt = do
   _ <- symbol "FOR"
   var <- identifier
-  _ <- symbol "="
+  _ <- symbol "<-"
   start <- expr
   _ <- symbol "TO"
   end <- expr
