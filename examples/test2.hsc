@@ -1,0 +1,6 @@
+FUNCTION co(x: STRING) RETURNS REAL 
+    RETURN 1.0 + 4.5 * 13
+ENDFUNCTION
+
+OUTPUT co("hello world")
+    

@@ -1,4 +1,4 @@
-name = real
+name = test2
 
 default: 
 	cabal build
