@@ -404,11 +404,11 @@ expr = finalExpression <?> "valid expression"
 
     index = sepBy expr (symbol ",")
 
-    modOp = symbol "%" >> return Mod
+    modOp = symbol "MOD" >> return Mod
 
     mulOp =
       (symbol "*" >> return Mul)
-        <|> (symbol "//" >> return IntDiv)
+        <|> (symbol "DIV" >> return IntDiv)
         <|> (symbol "/" >> return Div)
     addOp =
       (symbol "+" >> return Add)
