@@ -6,6 +6,7 @@ import Text.Parsec
 import Text.Parsec.String (Parser)
 
 -- TODO: Add constants
+-- TODO: Add record types
 
 {-
   ┌─────────────────────────────────────────────────────────────────────────┐
@@ -26,6 +27,7 @@ type Dimension = [Range]
 
 data Type
   = IntType
+  | RealType
   | BoolType
   | CharType
   | StringType
@@ -36,6 +38,7 @@ data Type
 data Expr
   = Variable VarName
   | IntValue Int
+  | RealValue Float
   | Add Expr Expr
   | Sub Expr Expr
   | Mul Expr Expr
@@ -62,6 +65,7 @@ data Expr
 
 data Stmt
   = Declare VarName Type
+  | Constant VarName Expr
   | Assign VarName Expr
   | AssignArray VarName [Expr] Expr
   | Cond Expr [Stmt] [Stmt]
@@ -127,6 +131,7 @@ typeToString :: Type -> String
 typeToString IntType = "int"
 typeToString BoolType = "bool"
 typeToString CharType = "char"
+typeToString RealType = "float"
 typeToString StringType = "std::string"
 typeToString (Array t [Range 1 end]) =
   "std::array<"
@@ -193,6 +198,7 @@ compileExpr (Function functionName args) =
     ++ "("
     ++ combine (fmap compileExpr args)
     ++ ")"
+compileExpr (RealValue r) = show r
 
 -- WE ASSUME THAT FUNCTION CALLS CAN ONLY BE USED IN EXPRESSIONS
 
@@ -299,7 +305,15 @@ compileStmt (Call functionName args) =
     ++ "("
     ++ combine (fmap compileExpr args)
     ++ ");"
-
+compileStmt (Constant varName value) =
+  "const " ++ typeName value ++ " " ++ 
+    varName ++ " = " ++ compileExpr value ++ ";"
+  where 
+    typeName :: Expr -> String
+    typeName (IntValue _) = "int"
+    typeName (RealValue _) = "float"
+    typeName (BoolLiteral _) = "bool"
+    typeName (StringLiteral _) = "std::string"
 isComment :: String -> Bool
 isComment str = "//" `isPrefixOf` dropWhile isSpace str
 
@@ -359,6 +373,9 @@ variable = Variable <$> identifier
 integer :: Parser Expr
 integer = IntValue . read <$> many1 digit
 
+real :: Parser Expr
+real = RealValue . read <$> many1 (digit <|> char '.')
+
 stringLiteral :: Parser Expr
 stringLiteral = do
   _ <- char '\"' <?> "\""
@@ -382,6 +399,7 @@ expr = finalExpression <?> "valid expression"
     factor =
       try arrayIndex
         <|> parens expr
+        <|> try real
         <|> integer
         <|> boolean
         <|> try function
@@ -454,6 +472,7 @@ arrayParser = do
 typeParser :: Parser Type
 typeParser =
   (symbol "INTEGER" >> return IntType)
+    <|> (symbol "REAL" >> return RealType)
     <|> (symbol "BOOLEAN" >> return BoolType)
     <|> (symbol "STRING" >> return StringType)
     <|> (symbol "CHAR" >> return CharType)
@@ -471,7 +490,7 @@ declareStmt = do
 assignStmt :: Parser Stmt
 assignStmt = do
   spaces
-  var <- identifier
+  var <- lValueParser
   _ <- symbol "<-" <|> fail ("missing <- in assignment: \n" ++ var ++ " <- ...")
   Assign var <$> expr
 
@@ -529,7 +548,7 @@ whileStmt :: Parser Stmt
 whileStmt = do
   _ <- symbol "WHILE"
   cond <- expr
-  _ <- symbol "DO" <|> fail "missing DO in WHILE statement"
+  -- _ <- symbol "DO" <|> fail "missing DO in WHILE statement"
   nextLine
   body <- many stmt
   _ <- symbol "ENDWHILE" <|> fail "missing ENDWHILE in WHILE statement"
@@ -641,9 +660,19 @@ callStmt = do
   _ <- symbol ")" <|> fail "missing closing paren"
   return $ Call name args
 
+-- We simulate pseudocode constants (DECLARES) with immutable values
+constantStmt :: Parser Stmt
+constantStmt = do
+  _ <- symbol "CONSTANT"
+  name <- identifier
+  _ <- symbol "="
+  value <- try boolean <|> try stringLiteral <|> integer
+  return $ Constant name value
+
 stmt :: Parser Stmt
 stmt =
   ( commentStmt
+      <|> constantStmt
       <|> callStmt
       <|> returnStmt
       <|> forStmt

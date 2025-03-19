@@ -1,4 +1,4 @@
-name = primes
+name = real
 
 default: 
 	cabal build

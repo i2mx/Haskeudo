@@ -1,0 +1,2 @@
+DECLARE r : ARRAY[1:30] OF REAL
+r[10] <- 1.04
