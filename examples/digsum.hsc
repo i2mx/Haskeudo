@@ -7,6 +7,6 @@ WHILE x > 0
     x <- x DIV 10
 ENDWHILE
 
-FOR i <- 1 TO 1 DO
+FOR i <- 1 TO 1
     OUTPUT "sum = " , digsum
 NEXT i

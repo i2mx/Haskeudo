@@ -568,7 +568,7 @@ forOneStmt = do
   start <- expr
   _ <- symbol "TO"
   end <- expr
-  _ <- symbol "DO" <|> fail "missing DO in FOR statement"
+  -- _ <- symbol "DO" <|> fail "missing DO in FOR statement"
   nextLine
   body <- many stmt
   _ <- symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
@@ -576,7 +576,7 @@ forOneStmt = do
   return $ For var start end (IntValue 1) body
 
 forStepStmt :: Parser Stmt
-forStepStmt = do
+forStepStmt = do 
   _ <- symbol "FOR"
   var <- identifier
   _ <- symbol "<-"
@@ -585,7 +585,7 @@ forStepStmt = do
   end <- expr
   _ <- symbol "STEP"
   step <- expr
-  _ <- symbol "DO" <|> fail "missing DO in FOR statement"
+  -- _ <- symbol "DO" <|> fail "missing DO in FOR statement"
   nextLine
   body <- many stmt
   _ <- symbol "NEXT" <|> fail ("missing NEXT " ++ var ++ " in FOR statement")
