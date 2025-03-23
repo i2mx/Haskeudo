@@ -5,7 +5,6 @@ import System.Process (callCommand)
 import Text.Parsec
 import Text.Parsec.String (Parser)
 
--- TODO: Add constants
 -- TODO: Add record types
 
 {-
@@ -78,6 +77,7 @@ data Stmt
   | FunctionDef VarName [(VarName, Type)] Type [Stmt]
   | ProcedureDef VarName [(VarName, Type)] [Stmt]
   | Call VarName [Expr]
+  | CaseOf Expr [(Expr, [Stmt])] (Maybe Stmt)
   | Return Expr
   deriving (Show)
 
@@ -319,6 +319,7 @@ compileStmt (Constant varName value) =
     typeName (RealValue _) = "float"
     typeName (BoolLiteral _) = "bool"
     typeName (StringLiteral _) = "std::string"
+-- compileStmt (CaseOf) 
 
 isComment :: String -> Bool
 isComment str = "//" `isPrefixOf` dropWhile isSpace str
@@ -380,7 +381,11 @@ integer :: Parser Expr
 integer = IntValue . read <$> many1 digit
 
 real :: Parser Expr
-real = RealValue . read <$> many1 (digit <|> char '.')
+real = do
+  a <- many digit
+  _ <- char '.'
+  b <- many digit 
+  return (RealValue $ read (a ++ "." ++ b))
 
 stringLiteral :: Parser Expr
 stringLiteral = do
@@ -406,7 +411,7 @@ expr = finalExpression <?> "valid expression"
       try arrayIndex
         <|> parens expr
         <|> try real
-        <|> integer
+        <|> try integer
         <|> boolean
         <|> try function
         <|> variable

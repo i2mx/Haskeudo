@@ -69,7 +69,7 @@ executable hsc
 
     -- Other library packages from which modules are imported.
     build-depends:
-        base >=4.7 && <5
+        base >= 4.7 && <5
         , megaparsec
         , parsec
         , directory
