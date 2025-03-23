@@ -79,10 +79,10 @@ char CHR(int x) {
 }
 
 float co(std::string x) {
-return (1.0 + (4.5 * 13));
+    return (1.0 + (4.5 * 13));
 }
 
 signed main() {
-std::cout << co("hello world") << std::endl;
-return 0; 
+    std::cout << co("hello world") << std::endl;
+    return 0; 
 }

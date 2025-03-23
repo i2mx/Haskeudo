@@ -153,13 +153,12 @@ combine [] = ""
 combine s = foldr1 (\x y -> x ++ ", " ++ y) s
 
 compile :: AST -> String
-compile ast = includes ++ declares ++ header ++ body ++ end
+compile ast = declares ++ header ++ body ++ end
   where
     isDeclaration (FunctionDef {}) = True
     isDeclaration (ProcedureDef {}) = True
     isDeclaration _ = False
 
-    includes = "#include <random> \n#include <string> \n#include <iostream> \n#include <random> \n#include <sstream> \n#include <cctype> \n#include <array> \n\nint INT(const float& num1) { \n    return (int)num1; \n} \n\nfloat RANDOM() { \n    return std::rand(); \n} \n\n// STRING FUNCTIONS \n\nstd::string MID(const std::string& ThisString, int x, int y) { \n    return ThisString.substr(x, x + y - 1); \n} \n\nint LENGTH(const std::string& ThisString) { \n    return ThisString.length(); \n} \n\nstd::string SUBSTRING(const std::string& ThisString, int start, int end) { \n    return ThisString.substr(start, end); \n} \n\nstd::string LEFT(const std::string& ThisString, int x) { \n    return ThisString.substr(0, x); \n} \n\nstd::string RIGHT(const std::string& ThisString, int x) { \n    return ThisString.substr(ThisString.length() - x, x); \n} \n\nchar LCASE(char ThisChar) { \n    return std::tolower(ThisChar); \n} \n\nchar UCASE(char ThisChar) { \n    return std::toupper(ThisChar); \n} \n\nstd::string TO_UPPER(const std::string& ThisString) { \n    std::string result = ThisString; \n    for (char& c : result) { \n        c = std::toupper(c); \n    } \n    return result; \n} \n\nstd::string TO_LOWER(const std::string& ThisString) { \n    std::string result = ThisString; \n    for (char& c : result) { \n        c = std::tolower(c); \n    } \n    return result; \n} \n\nstd::string NUM_TO_STRING(double x) { \n    std::ostringstream oss; \n    oss << x; \n    return oss.str(); \n} \n\ndouble STRING_TO_NUM(const std::string& x) { \n    return std::stod(x); \n} \n\nint ASC(char ThisChar) { \n    return static_cast<int>(ThisChar); \n} \n\nchar CHR(int x) { \n    return static_cast<char>(x); \n}\n\n"
     header = "signed main() {\n"
     (declarations, statements) = partition isDeclaration ast
     declares = unlines $ map compileStmt declarations
@@ -255,7 +254,7 @@ compileStmt (For varName start end step body) =
     ++ compileExpr end
     ++ "; "
     ++ varName
-    ++ "+= "
+    ++ " += "
     ++ compileExpr step
     ++ ") {\n"
     ++ unlines (map compileStmt body)
@@ -705,12 +704,14 @@ program = spaces *> many line <* eof
 
 createExecutable :: String -> String -> String -> IO ()
 createExecutable src dest out = do
+  let includes = "#include <random> \n#include <string> \n#include <iostream> \n#include <random> \n#include <sstream> \n#include <cctype> \n#include <array> \n\nint INT(const float& num1) { \n    return (int)num1; \n} \n\nfloat RANDOM() { \n    return std::rand(); \n} \n\n// STRING FUNCTIONS \n\nstd::string MID(const std::string& ThisString, int x, int y) { \n    return ThisString.substr(x, x + y - 1); \n} \n\nint LENGTH(const std::string& ThisString) { \n    return ThisString.length(); \n} \n\nstd::string SUBSTRING(const std::string& ThisString, int start, int end) { \n    return ThisString.substr(start, end); \n} \n\nstd::string LEFT(const std::string& ThisString, int x) { \n    return ThisString.substr(0, x); \n} \n\nstd::string RIGHT(const std::string& ThisString, int x) { \n    return ThisString.substr(ThisString.length() - x, x); \n} \n\nchar LCASE(char ThisChar) { \n    return std::tolower(ThisChar); \n} \n\nchar UCASE(char ThisChar) { \n    return std::toupper(ThisChar); \n} \n\nstd::string TO_UPPER(const std::string& ThisString) { \n    std::string result = ThisString; \n    for (char& c : result) { \n        c = std::toupper(c); \n    } \n    return result; \n} \n\nstd::string TO_LOWER(const std::string& ThisString) { \n    std::string result = ThisString; \n    for (char& c : result) { \n        c = std::tolower(c); \n    } \n    return result; \n} \n\nstd::string NUM_TO_STRING(double x) { \n    std::ostringstream oss; \n    oss << x; \n    return oss.str(); \n} \n\ndouble STRING_TO_NUM(const std::string& x) { \n    return std::stod(x); \n} \n\nint ASC(char ThisChar) { \n    return static_cast<int>(ThisChar); \n} \n\nchar CHR(int x) { \n    return static_cast<char>(x); \n}\n\n"
   source <- readFile src
   case parse program "" (source ++ "\n") of
     Left err -> print err
     Right ast -> do
       writeFile
-        dest
+        dest 
+        $ (includes ++)
         $ unlines
         $ formatCode
         $ lines
