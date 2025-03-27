@@ -17,7 +17,7 @@ float RANDOM() {
 // STRING FUNCTIONS 
 
 std::string MID(const std::string& ThisString, int x, int y) { 
-    return ThisString.substr(x, x + y - 1); 
+    return ThisString.substr(x-1, y); 
 } 
 
 int LENGTH(const std::string& ThisString) { 
@@ -25,7 +25,7 @@ int LENGTH(const std::string& ThisString) {
 } 
 
 std::string SUBSTRING(const std::string& ThisString, int start, int end) { 
-    return ThisString.substr(start, end); 
+    return ThisString.substr(start-1, end-start+1); 
 } 
 
 std::string LEFT(const std::string& ThisString, int x) { 
