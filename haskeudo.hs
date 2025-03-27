@@ -39,6 +39,7 @@ data Expr
   | IntValue Int
   | RealValue Float
   | Add Expr Expr
+  | Concat Expr Expr
   | Sub Expr Expr
   | Mul Expr Expr
   | Div Expr Expr
@@ -171,6 +172,7 @@ compileExpr :: Expr -> String
 compileExpr (Variable varName) = varName
 compileExpr (IntValue i) = show i
 compileExpr (Add e1 e2) = "(" ++ compileExpr e1 ++ " + " ++ compileExpr e2 ++ ")"
+compileExpr (Concat e1 e2) = "(" ++ compileExpr e1 ++ " + " ++ compileExpr e2 ++ ")"
 compileExpr (Sub e1 e2) = "(" ++ compileExpr e1 ++ " - " ++ compileExpr e2 ++ ")"
 compileExpr (Mul e1 e2) = "(" ++ compileExpr e1 ++ " * " ++ compileExpr e2 ++ ")"
 compileExpr (Div e1 e2) = "(" ++ compileExpr e1 ++ " / " ++ compileExpr e2 ++ ")"
@@ -441,6 +443,7 @@ expr = finalExpression <?> "valid expression"
         <|> (symbol "/" >> return Div)
     addOp =
       (symbol "+" >> return Add)
+        <|> (symbol "&" >> return Concat)
         <|> (symbol "-" >> return Sub)
     notOp = symbol "NOT" >> return Not
 
