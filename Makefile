@@ -1,4 +1,4 @@
-name = test2
+name = casetest
 
 default: 
 	cabal build
